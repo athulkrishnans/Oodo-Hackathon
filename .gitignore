@@ -33,5 +33,4 @@ Thumbs.db
 *.tsbuildinfo
 
 # ── k6 results ───────────────────────────────────
-# Commit summary charts to README instead of raw output files
 k6-results*.json

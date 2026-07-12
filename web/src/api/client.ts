@@ -20,6 +20,7 @@ async function request<T>(
   method: string,
   path: string,
   body?: unknown,
+  extraHeaders?: Record<string, string>,
 ): Promise<T> {
   const token = getToken();
   const res = await fetch(`${BASE}${path}`, {
@@ -27,6 +28,7 @@ async function request<T>(
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(extraHeaders ?? {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
@@ -54,7 +56,32 @@ export class ApiError extends Error {
 
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
-  post: <T>(path: string, body: unknown) => request<T>('POST', path, body),
+  post: <T>(path: string, body: unknown, headers?: Record<string, string>) => request<T>('POST', path, body, headers),
   put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),
+  patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
 };
+
+// Current user decoded from the JWT claim (sub/role/email — see middleware/auth.ts).
+// Used for client-side role gating of write UI (on top of the backend requireRole gate).
+export interface CurrentUser {
+  sub: string;
+  role: string | null;
+  email: string;
+}
+
+export function getCurrentUser(): CurrentUser | null {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const [, payload] = token.split('.');
+    const decoded = JSON.parse(atob(payload));
+    return {
+      sub: decoded.sub,
+      role: decoded.role ?? null,
+      email: decoded.email,
+    };
+  } catch {
+    return null;
+  }
+}

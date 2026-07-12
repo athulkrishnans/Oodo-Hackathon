@@ -7,6 +7,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Shared FE/BE Zod schemas — single source of truth for shapes (conventions.md).
+      '@shared': path.resolve(__dirname, '../src/shared'),
     },
   },
   server: {

@@ -5,10 +5,12 @@ import { errorHandler } from './middleware/errors';
 import { authRateLimit } from './middleware/rateLimit';
 
 // Module routers (stubs — implemented by each member in H1+)
-import { authRouter } from './modules/auth/routes';
+import { authRouter, usersRouter } from './modules/auth/routes';
 import { fleetRouter } from './modules/fleet/routes';
 import { dispatchRouter } from './modules/dispatch/routes';
 import { financeRouter } from './modules/finance/routes';
+import { adminRouter } from './modules/admin/routes';
+import { startLicenseExpiryJob } from './jobs/licenseExpiry';
 
 const app = express();
 const PORT = process.env.PORT ?? 3000;
@@ -19,9 +21,11 @@ app.use(express.json());
 
 // ── Routes ──────────────────────────────────
 app.use('/api/v1/auth', authRateLimit, authRouter);
+app.use('/api/v1', usersRouter);
 app.use('/api/v1', fleetRouter);
 app.use('/api/v1', dispatchRouter);
 app.use('/api/v1', financeRouter);
+app.use('/api/v1', adminRouter);
 
 // Health check
 app.get('/health', (_req, res) => {
@@ -33,6 +37,8 @@ app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`TransitOps API running on http://localhost:${PORT}`);
+  // Section 11 — daily license-expiry check (also manually triggerable for demos).
+  startLicenseExpiryJob();
 });
 
 export default app;

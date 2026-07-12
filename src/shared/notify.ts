@@ -3,9 +3,8 @@
 // Email is documented roadmap (Section 11), not built.
 // Used by: dispatch (trip status), fleet (maintenance due), finance (anomaly), jobs (license expiry).
 
-import { PrismaClient, NotificationType } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { NotificationType, Role } from '@prisma/client';
+import { prisma } from './prisma';
 
 interface NotifyPayload {
   userId: string;
@@ -24,9 +23,15 @@ export const notify = {
     });
   },
 
-  // Convenience: notify all users with a given role
-  async sendToRole(_role: string, type: NotificationType, message: string): Promise<void> {
-    // TODO: query users by role, fan out notification rows
-    void _role; void type; void message;
+  // Fan out a notification to every ACTIVE user holding a given role.
+  async sendToRole(role: Role, type: NotificationType, message: string): Promise<void> {
+    const users = await prisma.user.findMany({
+      where: { role, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (users.length === 0) return;
+    await prisma.notification.createMany({
+      data: users.map((u) => ({ userId: u.id, type, message })),
+    });
   },
 };

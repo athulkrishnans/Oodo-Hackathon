@@ -2,9 +2,10 @@
 // Role-based access control — applied at route level, never buried in service logic.
 // Usage: router.post('/vehicles', authenticate, requireRole('FLEET_MANAGER', 'ADMIN'), handler)
 // Convention: role always read from verified JWT claim, never from request body.
-// Implemented by M1 in H1–2.
 
 import { Request, Response, NextFunction } from 'express';
+import { AppError } from './errors';
+import { AuthPayload } from './auth';
 
 export type Role =
   | 'ADMIN'
@@ -13,11 +14,19 @@ export type Role =
   | 'SAFETY_OFFICER'
   | 'FINANCIAL_ANALYST';
 
-// Stub — replace with real role check in H1-2
-export function requireRole(..._roles: Role[]) {
+export function requireRole(...roles: Role[]) {
   return (_req: Request, res: Response, next: NextFunction): void => {
-    // TODO: check res.locals.user.role is in _roles
-    // On failure: res.status(403).json({ success: false, error: { code: 'auth/forbidden', message: 'Insufficient role' } })
+    const user = res.locals.user as AuthPayload | undefined;
+    if (!user) {
+      throw new AppError(401, 'auth/unauthenticated', 'Not authenticated');
+    }
+    if (!roles.includes(user.role as Role)) {
+      throw new AppError(
+        403,
+        'auth/forbidden',
+        `This action requires one of: ${roles.join(', ')}`,
+      );
+    }
     next();
   };
 }

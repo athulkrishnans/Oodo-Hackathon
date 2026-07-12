@@ -1,73 +1,199 @@
 // src/modules/finance/routes.ts — M4 owns this file
-// Implemented in H1–2. Stub only.
-// Routes: /fuel-logs, /expenses, /reports/*, /emission-factors
+// Fuel / expense / reports / emission factors (BUILD_BIBLE Sections 9, 10, 13).
+// RBAC: FINANCIAL_ANALYST (+ADMIN) for fuel/expense/revenue writes + reports.
+// Emission-factor edits are ADMIN only (Section 3).
 
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
+import { authenticate } from '../../middleware/auth';
+import { requireRole } from '../../middleware/rbac';
+import { successResponse } from '../../shared/types';
+import {
+  createFuelLogSchema,
+  reviewFuelLogSchema,
+  listFuelLogsQuerySchema,
+  createExpenseSchema,
+  listExpensesQuerySchema,
+  setRevenueSchema,
+  updateEmissionFactorSchema,
+  reportFilterSchema,
+  reportNameEnum,
+} from '../../shared/zodSchemas';
+import { financeService, objectsToCsv } from './service';
 
 export const financeRouter = Router();
 
-// GET /api/v1/fuel-logs
-financeRouter.get('/fuel-logs', (_req, res) => {
-  res.status(501).json({ success: false, error: { code: 'finance/not-implemented', message: 'Not yet implemented' } });
-});
+const asyncHandler =
+  (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>): RequestHandler =>
+  (req, res, next) => {
+    fn(req, res, next).catch(next);
+  };
 
-// POST /api/v1/fuel-logs
-financeRouter.post('/fuel-logs', (_req, res) => {
-  res.status(501).json({ success: false, error: { code: 'finance/not-implemented', message: 'Not yet implemented' } });
-});
+const actorId = (res: Response): string => res.locals.user?.sub as string;
+const canWriteFinance = requireRole('FINANCIAL_ANALYST', 'ADMIN');
 
-// GET /api/v1/fuel-logs/anomalies
-financeRouter.get('/fuel-logs/anomalies', (_req, res) => {
-  res.status(501).json({ success: false, error: { code: 'finance/not-implemented', message: 'Not yet implemented' } });
-});
+// ── Fuel logs ───────────────────────────────
+financeRouter.get(
+  '/fuel-logs',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const query = listFuelLogsQuerySchema.parse(req.query);
+    const { items, total } = await financeService.listFuelLogs(query);
+    res.status(200).json(successResponse(items, { page: query.page, limit: query.limit, total }));
+  }),
+);
 
-// POST /api/v1/fuel-logs/:id/review
-financeRouter.post('/fuel-logs/:id/review', (_req, res) => {
-  res.status(501).json({ success: false, error: { code: 'finance/not-implemented', message: 'Not yet implemented' } });
-});
+financeRouter.post(
+  '/fuel-logs',
+  authenticate,
+  canWriteFinance,
+  asyncHandler(async (req, res) => {
+    const input = createFuelLogSchema.parse(req.body);
+    const log = await financeService.createFuelLog(input, actorId(res));
+    res.status(201).json(successResponse(log));
+  }),
+);
 
-// GET /api/v1/expenses
-financeRouter.get('/expenses', (_req, res) => {
-  res.status(501).json({ success: false, error: { code: 'finance/not-implemented', message: 'Not yet implemented' } });
-});
+// Anomaly review queue (Section 9). Declared before /fuel-logs/:id-style routes (none here, but explicit).
+financeRouter.get(
+  '/fuel-logs/anomalies',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const query = listFuelLogsQuerySchema.parse(req.query);
+    const { items, total } = await financeService.listAnomalies(query);
+    res.status(200).json(successResponse(items, { page: query.page, limit: query.limit, total }));
+  }),
+);
 
-// POST /api/v1/expenses
-financeRouter.post('/expenses', (_req, res) => {
-  res.status(501).json({ success: false, error: { code: 'finance/not-implemented', message: 'Not yet implemented' } });
-});
+financeRouter.post(
+  '/fuel-logs/:id/review',
+  authenticate,
+  canWriteFinance,
+  asyncHandler(async (req, res) => {
+    const { reviewNote } = reviewFuelLogSchema.parse(req.body);
+    const log = await financeService.reviewAnomaly(req.params.id, reviewNote, actorId(res));
+    res.status(200).json(successResponse(log));
+  }),
+);
 
-// GET /api/v1/emission-factors
-financeRouter.get('/emission-factors', (_req, res) => {
-  res.status(501).json({ success: false, error: { code: 'finance/not-implemented', message: 'Not yet implemented' } });
-});
+// ── Expenses ────────────────────────────────
+financeRouter.get(
+  '/expenses',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const query = listExpensesQuerySchema.parse(req.query);
+    const { items, total } = await financeService.listExpenses(query);
+    res.status(200).json(successResponse(items, { page: query.page, limit: query.limit, total }));
+  }),
+);
 
-// PUT /api/v1/emission-factors/:id  (ADMIN only)
-financeRouter.put('/emission-factors/:id', (_req, res) => {
-  res.status(501).json({ success: false, error: { code: 'finance/not-implemented', message: 'Not yet implemented' } });
-});
+financeRouter.post(
+  '/expenses',
+  authenticate,
+  canWriteFinance,
+  asyncHandler(async (req, res) => {
+    const input = createExpenseSchema.parse(req.body);
+    const expense = await financeService.createExpense(input, actorId(res));
+    res.status(201).json(successResponse(expense));
+  }),
+);
 
-// Reports — Section 13
-financeRouter.get('/reports/fuel-efficiency', (_req, res) => {
-  res.status(501).json({ success: false, error: { code: 'finance/not-implemented', message: 'Not yet implemented' } });
-});
+// ── Trip revenue (analyst-editable, ROI numerator) ──
+financeRouter.patch(
+  '/trips/:id/revenue',
+  authenticate,
+  canWriteFinance,
+  asyncHandler(async (req, res) => {
+    const { revenue } = setRevenueSchema.parse(req.body);
+    const result = await financeService.setTripRevenue(req.params.id, revenue, actorId(res));
+    res.status(200).json(successResponse(result));
+  }),
+);
 
-financeRouter.get('/reports/utilization', (_req, res) => {
-  res.status(501).json({ success: false, error: { code: 'finance/not-implemented', message: 'Not yet implemented' } });
-});
+// ── Emission factors (Section 10) ───────────
+financeRouter.get(
+  '/emission-factors',
+  authenticate,
+  asyncHandler(async (_req, res) => {
+    const factors = await financeService.listEmissionFactors();
+    res.status(200).json(successResponse(factors));
+  }),
+);
 
-financeRouter.get('/reports/operational-cost', (_req, res) => {
-  res.status(501).json({ success: false, error: { code: 'finance/not-implemented', message: 'Not yet implemented' } });
-});
+financeRouter.put(
+  '/emission-factors/:id',
+  authenticate,
+  requireRole('ADMIN'),
+  asyncHandler(async (req, res) => {
+    const data = updateEmissionFactorSchema.parse(req.body);
+    const factor = await financeService.updateEmissionFactor(req.params.id, data, actorId(res));
+    res.status(200).json(successResponse(factor));
+  }),
+);
 
-financeRouter.get('/reports/roi', (_req, res) => {
-  res.status(501).json({ success: false, error: { code: 'finance/not-implemented', message: 'Not yet implemented' } });
-});
+// ── Reports (Section 13) ────────────────────
+financeRouter.get(
+  '/reports/fuel-efficiency',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const filter = reportFilterSchema.parse(req.query);
+    res.status(200).json(successResponse(await financeService.fuelEfficiencyReport(filter)));
+  }),
+);
 
-financeRouter.get('/reports/carbon', (_req, res) => {
-  res.status(501).json({ success: false, error: { code: 'finance/not-implemented', message: 'Not yet implemented' } });
-});
+financeRouter.get(
+  '/reports/utilization',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const filter = reportFilterSchema.parse(req.query);
+    res.status(200).json(successResponse(await financeService.utilizationReport(filter)));
+  }),
+);
 
-// CSV export per report — streaming endpoint
-financeRouter.get('/reports/:name/export', (_req, res) => {
-  res.status(501).json({ success: false, error: { code: 'finance/not-implemented', message: 'Not yet implemented' } });
-});
+financeRouter.get(
+  '/reports/operational-cost',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const filter = reportFilterSchema.parse(req.query);
+    res.status(200).json(successResponse(await financeService.operationalCostReport(filter)));
+  }),
+);
+
+financeRouter.get(
+  '/reports/roi',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const filter = reportFilterSchema.parse(req.query);
+    res.status(200).json(successResponse(await financeService.roiReport(filter)));
+  }),
+);
+
+financeRouter.get(
+  '/reports/carbon',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const filter = reportFilterSchema.parse(req.query);
+    res.status(200).json(successResponse(await financeService.carbonReport(filter)));
+  }),
+);
+
+// CSV export — streaming endpoint honoring the same filters (Section 13).
+financeRouter.get(
+  '/reports/:name/export',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const name = reportNameEnum.parse(req.params.name);
+    const filter = reportFilterSchema.parse(req.query);
+    const rows = await financeService.reportRows(name, filter);
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${name}-report.csv"`);
+    if (rows.length === 0) {
+      res.status(200).end('');
+      return;
+    }
+    // Stream header + rows line by line.
+    const csv = objectsToCsv(rows);
+    for (const line of csv.split('\n')) res.write(line + '\n');
+    res.end();
+  }),
+);

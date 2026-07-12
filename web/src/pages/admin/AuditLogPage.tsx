@@ -1,11 +1,31 @@
-// AuditLogPage.tsx — M1 implements in H2-3.5
-// ADMIN + FLEET_MANAGER: immutable audit trail, actor + timestamp + payload
+import { useApiGet } from '@/lib/useApi';
+import type { Paginated, AuditLogItem } from '@/lib/types';
+import { PageHeader, Table, Th, Td, Badge, Loading, ErrorBox, EmptyState } from '@/components/ui';
+
 export function AuditLogPage() {
+  const { data, loading, error } = useApiGet<Paginated<AuditLogItem>>('/audit-logs?limit=100');
+
   return (
     <div>
-      <h1 className="text-2xl font-semibold mb-6">Audit Log</h1>
-      {/* TODO M1: paginated audit log viewer with entity/action/actor filters */}
-      <p className="text-sm text-muted-foreground">Implemented in H2-3.5 (M1)</p>
+      <PageHeader title="Audit Log" subtitle="Immutable record of every state change — who did what, when" />
+      {loading && <Loading />}
+      {error && <ErrorBox message={error.message} />}
+      {data && data.data.length === 0 && <EmptyState message="No audit entries yet." />}
+      {data && data.data.length > 0 && (
+        <Table>
+          <thead><tr><Th>Time</Th><Th>Actor</Th><Th>Action</Th><Th>Entity</Th></tr></thead>
+          <tbody>
+            {data.data.map((a) => (
+              <tr key={a.id}>
+                <Td className="whitespace-nowrap">{new Date(a.timestamp).toLocaleString()}</Td>
+                <Td>{a.actor?.name ?? a.actorId.slice(0, 8)}{a.actor?.role ? ` (${a.actor.role})` : ''}</Td>
+                <Td><Badge tone="blue">{a.action}</Badge></Td>
+                <Td>{a.entity} · {a.entityId.slice(0, 8)}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
     </div>
   );
 }

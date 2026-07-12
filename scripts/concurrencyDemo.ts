@@ -1,9 +1,6 @@
 // scripts/concurrencyDemo.ts
 // Section 14, Innovation #6 — the mic-drop demo closer.
 // Fires 2 simultaneous dispatch requests for the same vehicle.
-// Expected output:
-//   ✅ TR-2026-0031 dispatched
-//   🛑 409 vehicle-already-assigned
 // Implemented by M3 in H5-6.
 
 async function run(): Promise<void> {

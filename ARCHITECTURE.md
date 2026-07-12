@@ -59,4 +59,20 @@ No cross-editing of module folders. Cross-module needs go through exported servi
 
 ---
 
+---
+
+## Partial unique indexes — why they're raw SQL
+
+Three indexes exist only as a Prisma migration (`prisma/migrations/20260712132334_add_partial_unique_indexes/migration.sql`) and **not** in `schema.prisma`, because Prisma's schema language cannot express `WHERE`-clause partial indexes:
+
+| Index name | Table | Condition | Rule enforced |
+|---|---|---|---|
+| `one_active_trip_per_vehicle` | `trips` | `WHERE status = 'DISPATCHED'` | Section 7 Rule #4 — no double-dispatch of a vehicle |
+| `one_active_trip_per_driver` | `trips` | `WHERE status = 'DISPATCHED'` | Section 7 Rule #4 — no double-dispatch of a driver |
+| `one_open_maintenance_per_vehicle` | `maintenance_logs` | `WHERE status = 'OPEN'` | Section 7 Rule #9 — one open maintenance log per vehicle |
+
+**If you run `prisma migrate reset`:** Prisma replays all migrations in order, so these indexes will be re-created automatically from the migration file. No manual intervention needed after a reset.
+
+---
+
 *TODO (complete before H6–7 demo): add sequence diagram for the dispatch transaction, and document the concurrency test results from `scripts/concurrencyDemo.ts`.*

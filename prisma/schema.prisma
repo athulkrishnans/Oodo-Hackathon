@@ -219,9 +219,8 @@ model Trip {
   fuelLogs FuelLog[]
   expenses Expense[]
 
-  // Section 7 partial unique indexes — defined as raw SQL migration
-  // because Prisma does not natively support partial unique indexes via schema syntax.
-  // Migration file: prisma/migrations/manual_partial_indexes.sql
+  // Section 7 partial unique indexes — defined as raw SQL, cannot be expressed in Prisma schema syntax.
+  // Migration: prisma/migrations/20260712132334_add_partial_unique_indexes/migration.sql
   // CREATE UNIQUE INDEX one_active_trip_per_vehicle ON trips(vehicle_id) WHERE status = 'DISPATCHED';
   // CREATE UNIQUE INDEX one_active_trip_per_driver  ON trips(driver_id)  WHERE status = 'DISPATCHED';
 
@@ -247,7 +246,8 @@ model MaintenanceLog {
 
   vehicle Vehicle @relation(fields: [vehicleId], references: [id])
 
-  // Partial unique index: one OPEN log per vehicle
+  // Partial unique index: one OPEN log per vehicle — raw SQL, cannot be expressed in Prisma schema syntax.
+  // Migration: prisma/migrations/20260712132334_add_partial_unique_indexes/migration.sql
   // CREATE UNIQUE INDEX one_open_maintenance_per_vehicle ON maintenance_logs(vehicle_id) WHERE status = 'OPEN';
   @@index([vehicleId])
   @@index([status])

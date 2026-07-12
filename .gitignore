@@ -6,10 +6,7 @@ web/node_modules/
 dist/
 web/dist/
 
-# ── Environment / secrets ────────────────────────
-.env
-.env.local
-.env.*.local
+
 
 # ── Prisma ───────────────────────────────────────
 # Keep schema.prisma and seed.ts tracked; ignore generated client
